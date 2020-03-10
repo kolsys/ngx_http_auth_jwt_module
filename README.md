@@ -51,6 +51,16 @@ Default: -
 Context: http, server, location
 ```
 
+### auth_jwt_key
+
+This directive is used to specify the key. This must be a certificate in case JWT is encrypted using an asymmetric key encryption (RS256 for example) or the shared secret in case JWT is encrypted using a symmetric algorithm (HS256 for example).
+
+```
+Syntax: auth_jwt_key key;
+Default: -
+Context: http, server, location
+```
+
 ### auth_jwt_alg
 
 This directive is used to specify which algorithm the server expects to receive in the JWT. As suggested by [Auth0](https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries/) letting the creator ot the JWT to choose the encryption algorithm can leed to critical vulnerabilities.

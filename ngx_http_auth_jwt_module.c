@@ -22,6 +22,8 @@ static ngx_int_t
 ngx_http_auth_jwt_set_realm(ngx_http_request_t *r, ngx_str_t *realm);
 static char *
 ngx_http_auth_jwt_key_file(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+static char *
+ngx_http_auth_jwt_key(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static void
 ngx_http_auth_jwt_cleanup(void *data);
 
@@ -70,6 +72,13 @@ static ngx_command_t ngx_http_auth_jwt_commands[] = {
     { ngx_string("auth_jwt_key_file"),
     NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
     ngx_http_auth_jwt_key_file,
+    NGX_HTTP_LOC_CONF_OFFSET,
+    0,
+    NULL },
+
+    { ngx_string("auth_jwt_key"),
+    NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+    ngx_http_auth_jwt_key,
     NGX_HTTP_LOC_CONF_OFFSET,
     0,
     NULL },
@@ -212,11 +221,8 @@ ngx_http_auth_jwt_handler(ngx_http_request_t *r)
     ngx_http_auth_jwt_ctx_t       *ctx;
     ngx_pool_cleanup_t            *cln;
 
-    if (r->main->internal) {
-        return NGX_DECLINED;
-    }
-
-    r->main->internal = 1;
+    ngx_log_debug(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+        "jwt_verify: handle request");
 
     alcf = ngx_http_get_module_loc_conf(r, ngx_http_auth_jwt_module);
 
@@ -354,6 +360,22 @@ ngx_http_auth_jwt_set_realm(ngx_http_request_t *r, ngx_str_t *realm)
     r->headers_out.www_authenticate->value.len = len;
 
     return NGX_HTTP_UNAUTHORIZED;
+}
+
+// auth_jwt_key config directive callback
+static char *
+ngx_http_auth_jwt_key(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_http_auth_jwt_loc_conf_t * plcf = conf;
+    ngx_str_t *args = cf->args->elts;
+
+    if (args[1].len < 5) {
+        ngx_conf_log_error(NGX_LOG_ERR, cf, 0,
+         "auth_jwt_key: incorrect key value");
+        return NGX_CONF_ERROR;
+    }
+    plcf->key = args[1];
+    return NGX_CONF_OK;
 }
 
 // auth_jwt_key_file config directive callback
