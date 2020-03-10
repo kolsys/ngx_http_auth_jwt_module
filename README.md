@@ -15,6 +15,11 @@ In order to compile, dowload source code for nginx and this repo. From the nginx
 ./configure --with-http_ssl_module --add-module=../ngx_http_auth_jwt_module
 ```
 
+### Docker
+```
+docker build .
+```
+
 ## Usage
 
 There are few directives that can be used in the configuration file in order to activate this module.
@@ -57,3 +62,16 @@ Default: -
 Context: http, server, location
 ```
 
+### Embedded Variables
+```
+$jwt_iss
+```
+iss attribute from grants
+```
+$jwt_aud
+```
+ aud attribute from grants
+```
+$jwt_sub
+```
+ sub attribute from grants
