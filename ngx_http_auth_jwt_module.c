@@ -26,6 +26,8 @@ static char *
 ngx_http_auth_jwt_key(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static void
 ngx_http_auth_jwt_cleanup(void *data);
+static jwt_t *
+ngx_http_auth_jwt_ctx_token(ngx_http_request_t *r);
 
 static ngx_int_t ngx_http_auth_jwt_add_variables(ngx_conf_t *cf);
 static ngx_int_t ngx_http_auth_jwt_variable(ngx_http_request_t *r,
@@ -159,7 +161,7 @@ ngx_http_auth_jwt_init(ngx_conf_t *cf)
 
     cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
 
-    h = ngx_array_push(&cmcf->phases[NGX_HTTP_ACCESS_PHASE].handlers);
+    h = ngx_array_push(&cmcf->phases[NGX_HTTP_REWRITE_PHASE].handlers);
     if (h == NULL) {
         return NGX_ERROR;
     }
@@ -478,19 +480,47 @@ ngx_http_auth_jwt_cleanup(void *data)
     jwt_free(token);
 }
 
+static jwt_t *
+ngx_http_auth_jwt_ctx_token(ngx_http_request_t *r)
+{
+    ngx_pool_cleanup_t     *cln;
+    ngx_http_auth_jwt_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_auth_jwt_module);
+
+    if (ctx == NULL && (r->internal || r->filter_finalize)) {
+
+        /*
+         * if module context was reset, the original address
+         * can still be found in the cleanup handler
+         */
+
+        for (cln = r->pool->cleanup; cln; cln = cln->next) {
+            if (cln->handler == ngx_http_auth_jwt_cleanup) {
+                ctx = cln->data;
+                break;
+            }
+        }
+    }
+    if (ctx) {
+        return ctx->token;
+    }
+    return NULL;
+}
+
 static ngx_int_t
 ngx_http_auth_jwt_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v,
     uintptr_t data)
 {
-    ngx_http_auth_jwt_ctx_t  *ctx;
+    jwt_t  *token;
     const char *val;
 
-    ctx = ngx_http_get_module_ctx(r, ngx_http_auth_jwt_module);
+    token = ngx_http_auth_jwt_ctx_token(r);
 
-    if (ctx) {
-        val = jwt_get_grant(ctx->token, ngx_http_auth_jwt_grants[data]);
+    if (token) {
+        val = jwt_get_grant(token, ngx_http_auth_jwt_grants[data]);
         if (val != NULL) {
-            v->len = ngx_strlen(val);;
+            v->len = ngx_strlen(val);
             v->valid = 1;
             v->no_cacheable = 0;
             v->not_found = 0;
