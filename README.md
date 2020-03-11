@@ -55,6 +55,8 @@ Context: http, server, location
 
 This directive is used to specify the key. This must be a certificate in case JWT is encrypted using an asymmetric key encryption (RS256 for example) or the shared secret in case JWT is encrypted using a symmetric algorithm (HS256 for example).
 
+Allowed variable.
+
 ```
 Syntax: auth_jwt_key key;
 Default: -

@@ -43,6 +43,7 @@ typedef struct {
     ngx_str_t  key;
     ngx_uint_t jwt_algorithm;
     ngx_int_t  variable_index;
+    ngx_int_t  key_index;
 } ngx_http_auth_jwt_loc_conf_t;
 
 // enum of all algorithms
@@ -188,7 +189,8 @@ ngx_http_auth_jwt_create_loc_conf(ngx_conf_t *cf)
     // ngx_uint_t jwt_algorithm  = 0;
     // ngx_int_t  variable_index = 0;
 
-    conf->variable_index = -1;
+    conf->variable_index = NGX_CONF_UNSET;
+    conf->key_index = NGX_CONF_UNSET;
     conf->jwt_algorithm = NGX_CONF_UNSET_UINT;
 
     return conf;
@@ -208,8 +210,11 @@ ngx_http_auth_jwt_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
         conf->active = prev->active;
     }
 
-    if (conf->variable_index == -1) {
+    if (conf->variable_index == NGX_CONF_UNSET) {
         conf->variable_index = prev->variable_index;
+    }
+    if (conf->key_index == NGX_CONF_UNSET) {
+        conf->key_index = prev->variable_index;
     }
 
     return NGX_CONF_OK;
@@ -287,6 +292,18 @@ ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 
     ngx_log_debug(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
         "jwt_verify: authorization=%s key=%s", token_data, alcf->key.data);
+
+    if (alcf->key_index != NGX_CONF_UNSET) {
+        v = ngx_http_get_indexed_variable(r, alcf->key_index);
+
+        if (v == NULL || v->not_found || v->len == 0) {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                "jwt_verify: key variable is not set");
+            return ngx_http_auth_jwt_set_realm(r, &alcf->realm);
+        }
+        alcf->key.len = v->len;
+        alcf->key.data = v->data;
+    }
 
     jwt_t* token;
     int err = jwt_decode(&token, token_data, alcf->key.data, alcf->key.len);
@@ -373,8 +390,19 @@ ngx_http_auth_jwt_key(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     if (args[1].len < 5) {
         ngx_conf_log_error(NGX_LOG_ERR, cf, 0,
-         "auth_jwt_key: incorrect key value");
+            "auth_jwt_key: incorrect key value");
         return NGX_CONF_ERROR;
+    }
+
+    if (args[1].data[0] == '$') {
+        args[1].len--;
+        args[1].data++;
+        plcf->key_index = ngx_http_get_variable_index(cf, &args[1]);
+        if (plcf->key_index == NGX_ERROR) {
+            ngx_conf_log_error(NGX_LOG_ERR, cf, 0,
+                "auth_jwt_key: variable not found");
+            return NGX_CONF_ERROR;
+        }
     }
     plcf->key = args[1];
     return NGX_CONF_OK;
