@@ -432,7 +432,7 @@ ngx_http_auth_jwt_key_file(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     plcf->key.data = calloc(len, 1);
     if (fread(plcf->key.data, 1, len, fp) != len) {
         ngx_conf_log_error(NGX_LOG_ERR, cf, 0,
-         "auth_jwt_key_file: unexpected end of file");
+            "auth_jwt_key_file: unexpected end of file");
         fclose(fp);
         return NGX_CONF_ERROR;
     }
@@ -525,8 +525,7 @@ ngx_http_auth_jwt_ctx_token(ngx_http_request_t *r)
 
         for (cln = r->pool->cleanup; cln; cln = cln->next) {
             if (cln->handler == ngx_http_auth_jwt_cleanup) {
-                ctx = cln->data;
-                break;
+                return cln->data;
             }
         }
     }
